@@ -1,8 +1,9 @@
 """
-LangChain Mini-RAG API
+Learn AI with RAG - AI Engineering Tutor API
 
-A FastAPI application that implements Retrieval Augmented Generation (RAG)
-using LangChain, FAISS vector store, and OpenAI embeddings.
+A FastAPI application that implements an interactive AI tutor using
+Retrieval Augmented Generation (RAG) with multilingual support.
+Built with LangChain, FAISS vector store, and OpenAI embeddings.
 """
 
 import logging
@@ -37,13 +38,13 @@ logger = logging.getLogger(__name__)
 class Config:
     """Application configuration"""
     BASE_DIR = Path(__file__).resolve().parent
-    ENV_PATH = BASE_DIR / ".env"
-    DATA_PATH = BASE_DIR / "sample_data"
+    ENV_PATH = BASE_DIR.parent / ".env"  # .env is now at root level
+    DATA_PATH = BASE_DIR.parent / "content" / "lessons"  # New lessons location
     CHUNK_SIZE = 500
     CHUNK_OVERLAP = 50
-    RETRIEVER_K = 3
+    RETRIEVER_K = 4  # Increased for better context
     LLM_MODEL = "gpt-4o-mini"
-    LLM_TEMPERATURE = 0.5
+    LLM_TEMPERATURE = 0.7  # Slightly higher for more natural responses
 
 # Load environment variables
 load_dotenv(dotenv_path=Config.ENV_PATH)
@@ -213,15 +214,28 @@ def initialize_app():
         api_key=api_key
     )
 
-    # Create prompt template
-    template = """Answer the question based only on the following context:
+    # Create prompt template with multilingual support
+    template = """You are an AI Engineering tutor helping students learn about artificial intelligence, machine learning, and related technologies.
+
+IMPORTANT LANGUAGE INSTRUCTION:
+- Detect the language of the user's question
+- If the question is in Italian, respond completely in Italian
+- If the question is in English, respond in English
+- Maintain the same language throughout your entire response
+
+Context from lessons:
 {context}
 
-Question: {question}
+Student's Question: {question}
 
-Provide a comprehensive answer based on the context above. If the context doesn't contain enough information to answer the question, say so.
+Instructions:
+1. Provide a clear, educational answer based on the context above
+2. Use examples and analogies when helpful for understanding
+3. If the context doesn't fully cover the topic, acknowledge this and provide what information is available
+4. Be encouraging and supportive - you're a tutor helping someone learn
+5. Format your response with proper structure (use bullet points, numbered lists when appropriate)
 
-Answer:"""
+Answer (in the same language as the question):"""
     prompt = ChatPromptTemplate.from_template(template)
 
     # Build the chain using LCEL
@@ -236,9 +250,9 @@ Answer:"""
 
 # --- FastAPI Application ---
 app = FastAPI(
-    title="LangChain Mini-RAG API",
-    description="A Retrieval Augmented Generation API powered by LangChain, FAISS, and OpenAI",
-    version="1.0.0"
+    title="Learn AI with RAG - Tutor API",
+    description="An interactive AI Engineering tutor powered by RAG with multilingual support (English/Italian). Ask questions and learn about AI, ML, LangChain, Vector Databases, and more!",
+    version="2.0.0"
 )
 
 # Add CORS middleware
@@ -294,7 +308,7 @@ async def root():
     logger.info("Health check requested")
     return HealthResponse(
         status="healthy",
-        message="LangChain Mini-RAG API is running 🚀",
+        message="Learn AI with RAG Tutor API is running 🚀 Ready to teach!",
         documents_loaded=len(documents) if documents else 0
     )
 
@@ -364,15 +378,16 @@ async def startup_event():
     initialize_app()
 
     logger.info("=" * 50)
-    logger.info("LangChain Mini-RAG API started successfully")
-    logger.info(f"Documents loaded: {len(documents) if documents else 0}")
-    logger.info(f"Model: {Config.LLM_MODEL}")
+    logger.info("🎓 Learn AI with RAG - Tutor API started successfully")
+    logger.info(f"📚 Lessons loaded: {len(documents) if documents else 0}")
+    logger.info(f"🤖 Model: {Config.LLM_MODEL}")
+    logger.info(f"🌍 Multilingual support: English & Italian")
     logger.info("=" * 50)
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Log application shutdown"""
-    logger.info("LangChain Mini-RAG API shutting down...")
+    logger.info("🎓 Learn AI with RAG - Tutor API shutting down...")
 
 if __name__ == "__main__":
     import uvicorn

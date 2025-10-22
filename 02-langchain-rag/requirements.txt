@@ -1,10 +1,25 @@
+# Core API dependencies
 fastapi
 uvicorn
+python-dotenv
+
+# LangChain and AI dependencies
 langchain
 langchain-core
 langchain-community
 langchain-openai
 langchain-text-splitters
-python-dotenv
+openai
+
+# Vector store
 faiss-cpu
 
+# Testing dependencies
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.1.0
+httpx>=0.24.0  # Required for TestClient async support
+
+# Code quality (optional but recommended)
+ruff>=0.1.0  # Fast Python linter
+black>=23.0.0  # Code formatter

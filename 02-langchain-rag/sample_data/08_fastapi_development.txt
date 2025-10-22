@@ -1,0 +1,397 @@
+FastAPI: Modern Python Web Framework for APIs
+
+FastAPI is a modern, fast (high-performance) web framework for building APIs with Python 3.7+ based on standard Python type hints. Created by Sebastián Ramírez in 2018, FastAPI has quickly become one of the most popular choices for building production-ready APIs, especially for AI and machine learning applications.
+
+Key Features and Benefits:
+
+1. High Performance
+FastAPI is one of the fastest Python frameworks available:
+- Built on Starlette (for web) and Pydantic (for data validation)
+- Comparable performance to NodeJS and Go
+- Async/await support for concurrent requests
+- Efficient handling of I/O-bound operations
+
+Benchmarks show FastAPI performs similarly to frameworks in compiled languages, making it excellent for production APIs serving ML models or LLM applications.
+
+2. Automatic API Documentation
+FastAPI automatically generates interactive API documentation:
+- Swagger UI at `/docs` endpoint
+- ReDoc at `/redoc` endpoint
+- OpenAPI schema generation
+- No additional configuration needed
+
+This is incredibly valuable for:
+- API exploration and testing
+- Team collaboration
+- Client integration
+- Documentation that's always up-to-date
+
+3. Type Hints and Data Validation
+Leverages Python's type hints with Pydantic:
+- Automatic request validation
+- Response validation
+- Clear error messages
+- IDE autocomplete support
+- Reduced bugs
+
+Example:
+```python
+from pydantic import BaseModel, EmailStr, validator
+
+class User(BaseModel):
+    name: str
+    email: EmailStr
+    age: int
+
+    @validator('age')
+    def age_must_be_positive(cls, v):
+        if v < 0:
+            raise ValueError('age must be positive')
+        return v
+
+@app.post("/users/")
+async def create_user(user: User):
+    return {"message": f"User {user.name} created"}
+```
+
+Invalid requests are automatically rejected with detailed error messages.
+
+4. Async Support
+Native support for async/await:
+- Handle multiple requests concurrently
+- Perfect for I/O-bound operations (API calls, database queries)
+- Improves throughput significantly
+
+Example:
+```python
+@app.get("/data")
+async def get_data():
+    result1 = await fetch_from_api()
+    result2 = await query_database()
+    return {"data": result1, "metadata": result2}
+```
+
+5. Dependency Injection
+Powerful dependency injection system:
+- Reusable dependencies
+- Authentication and authorization
+- Database connections
+- Configuration management
+
+Example:
+```python
+from fastapi import Depends
+
+def get_db():
+    db = Database()
+    try:
+        yield db
+    finally:
+        db.close()
+
+@app.get("/items/")
+async def read_items(db: Database = Depends(get_db)):
+    return db.query_items()
+```
+
+Building a FastAPI Application:
+
+1. Basic Structure
+```python
+from fastapi import FastAPI
+
+app = FastAPI(
+    title="My API",
+    description="API for awesome things",
+    version="1.0.0"
+)
+
+@app.get("/")
+async def root():
+    return {"message": "Hello World"}
+
+@app.get("/items/{item_id}")
+async def read_item(item_id: int, q: str = None):
+    return {"item_id": item_id, "q": q}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+```
+
+2. Request Body with Pydantic
+```python
+from pydantic import BaseModel
+from typing import Optional
+
+class Item(BaseModel):
+    name: str
+    description: Optional[str] = None
+    price: float
+    tax: Optional[float] = None
+
+@app.post("/items/")
+async def create_item(item: Item):
+    item_dict = item.dict()
+    if item.tax:
+        price_with_tax = item.price + item.tax
+        item_dict.update({"price_with_tax": price_with_tax})
+    return item_dict
+```
+
+3. Query Parameters
+```python
+@app.get("/items/")
+async def read_items(
+    skip: int = 0,
+    limit: int = 10,
+    sort: str = "asc"
+):
+    return {"skip": skip, "limit": limit, "sort": sort}
+```
+
+4. Path Parameters with Validation
+```python
+from fastapi import Path
+
+@app.get("/items/{item_id}")
+async def read_item(
+    item_id: int = Path(..., title="The ID of the item", ge=1)
+):
+    return {"item_id": item_id}
+```
+
+5. Request Headers
+```python
+from fastapi import Header
+
+@app.get("/items/")
+async def read_items(user_agent: str = Header(None)):
+    return {"User-Agent": user_agent}
+```
+
+Error Handling:
+
+1. HTTP Exceptions
+```python
+from fastapi import HTTPException
+
+@app.get("/items/{item_id}")
+async def read_item(item_id: int):
+    if item_id not in items:
+        raise HTTPException(
+            status_code=404,
+            detail="Item not found"
+        )
+    return items[item_id]
+```
+
+2. Custom Exception Handlers
+```python
+from fastapi import Request
+from fastapi.responses import JSONResponse
+
+class CustomException(Exception):
+    def __init__(self, message: str):
+        self.message = message
+
+@app.exception_handler(CustomException)
+async def custom_exception_handler(
+    request: Request,
+    exc: CustomException
+):
+    return JSONResponse(
+        status_code=400,
+        content={"message": exc.message}
+    )
+```
+
+Middleware:
+
+1. CORS Middleware
+```python
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, specify exact origins
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+```
+
+2. Custom Middleware
+```python
+from fastapi import Request
+import time
+
+@app.middleware("http")
+async def add_process_time_header(request: Request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = time.time() - start_time
+    response.headers["X-Process-Time"] = str(process_time)
+    return response
+```
+
+Background Tasks:
+
+For operations that can run after returning a response:
+```python
+from fastapi import BackgroundTasks
+
+def send_email(email: str, message: str):
+    # Send email logic
+    pass
+
+@app.post("/send-notification/")
+async def send_notification(
+    email: str,
+    background_tasks: BackgroundTasks
+):
+    background_tasks.add_task(send_email, email, "Message")
+    return {"message": "Notification sent"}
+```
+
+Testing FastAPI Applications:
+
+```python
+from fastapi.testclient import TestClient
+
+client = TestClient(app)
+
+def test_read_main():
+    response = client.get("/")
+    assert response.status_code == 200
+    assert response.json() == {"message": "Hello World"}
+
+def test_create_item():
+    response = client.post(
+        "/items/",
+        json={"name": "Test", "price": 10.0}
+    )
+    assert response.status_code == 200
+    assert response.json()["name"] == "Test"
+```
+
+FastAPI for LLM/AI Applications:
+
+FastAPI is excellent for AI/ML APIs because of:
+
+1. Async Support: Perfect for waiting on LLM API calls
+2. Streaming: Can stream LLM responses token by token
+3. Performance: Handles concurrent requests efficiently
+4. Easy Integration: Works well with Python ML libraries
+
+Example LLM API:
+```python
+from fastapi import FastAPI
+from pydantic import BaseModel
+from openai import AsyncOpenAI
+
+app = FastAPI()
+client = AsyncOpenAI()
+
+class QueryRequest(BaseModel):
+    question: str
+    max_tokens: int = 150
+
+@app.post("/generate")
+async def generate_response(request: QueryRequest):
+    response = await client.chat.completions.create(
+        model="gpt-4",
+        messages=[{"role": "user", "content": request.question}],
+        max_tokens=request.max_tokens
+    )
+    return {"answer": response.choices[0].message.content}
+```
+
+Streaming Responses:
+```python
+from fastapi.responses import StreamingResponse
+
+async def generate_tokens(prompt: str):
+    stream = await client.chat.completions.create(
+        model="gpt-4",
+        messages=[{"role": "user", "content": prompt}],
+        stream=True
+    )
+    async for chunk in stream:
+        if chunk.choices[0].delta.content:
+            yield chunk.choices[0].delta.content
+
+@app.post("/stream")
+async def stream_response(request: QueryRequest):
+    return StreamingResponse(
+        generate_tokens(request.question),
+        media_type="text/plain"
+    )
+```
+
+Security:
+
+1. API Keys
+```python
+from fastapi import Security
+from fastapi.security import APIKeyHeader
+
+api_key_header = APIKeyHeader(name="X-API-Key")
+
+@app.get("/secure")
+async def secure_endpoint(api_key: str = Security(api_key_header)):
+    if api_key != "secret-key":
+        raise HTTPException(status_code=403)
+    return {"message": "Access granted"}
+```
+
+2. OAuth2
+```python
+from fastapi.security import OAuth2PasswordBearer
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+@app.get("/users/me")
+async def read_users_me(token: str = Depends(oauth2_scheme)):
+    return {"token": token}
+```
+
+Deployment:
+
+1. With Uvicorn:
+```bash
+uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
+```
+
+2. With Gunicorn + Uvicorn workers:
+```bash
+gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker
+```
+
+3. Docker:
+```dockerfile
+FROM python:3.11-slim
+
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+Best Practices:
+
+1. Use Pydantic models for request/response validation
+2. Leverage dependency injection for reusable logic
+3. Implement proper error handling
+4. Add middleware for logging and monitoring
+5. Use environment variables for configuration
+6. Write tests for all endpoints
+7. Document your API with descriptions
+8. Use async/await for I/O operations
+9. Implement rate limiting for production
+10. Use HTTPS in production
+
+FastAPI has become the go-to choice for building modern Python APIs, especially in the AI/ML space. Its combination of performance, ease of use, and excellent developer experience makes it ideal for production applications.

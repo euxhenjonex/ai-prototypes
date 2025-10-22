@@ -1,0 +1,497 @@
+Testing Best Practices for Python Applications
+
+Testing is a critical part of software development that ensures code quality, prevents regressions, and enables confident refactoring. For AI and API applications, comprehensive testing becomes even more important due to the complexity and unpredictability of LLM responses.
+
+Why Testing Matters:
+
+1. Catch bugs early before they reach production
+2. Enable safe refactoring and feature additions
+3. Serve as documentation of expected behavior
+4. Increase confidence in deployments
+5. Reduce debugging time
+6. Improve code design (testable code is usually better code)
+
+Types of Testing:
+
+1. Unit Tests
+Test individual functions or methods in isolation:
+- Fast execution (milliseconds)
+- No external dependencies (use mocks)
+- Test one thing at a time
+- Easy to debug
+
+Example:
+```python
+def add(a, b):
+    return a + b
+
+def test_add():
+    assert add(2, 3) == 5
+    assert add(-1, 1) == 0
+    assert add(0, 0) == 0
+```
+
+2. Integration Tests
+Test how components work together:
+- Test database interactions
+- Test API integrations
+- Test multiple modules together
+- Slower than unit tests
+
+Example:
+```python
+def test_user_creation_flow():
+    # Create user
+    user = create_user("john@example.com")
+    # Verify in database
+    assert database.get_user(user.id) is not None
+    # Verify email sent
+    assert email_service.sent_emails[0].to == "john@example.com"
+```
+
+3. End-to-End (E2E) Tests
+Test complete user workflows:
+- Simulate real user interactions
+- Test entire system
+- Slowest tests
+- Most realistic
+
+Example:
+```python
+def test_complete_checkout_flow():
+    # Login
+    response = client.post("/login", json=credentials)
+    token = response.json()["token"]
+
+    # Add items to cart
+    client.post("/cart/add", headers={"Authorization": token})
+
+    # Checkout
+    response = client.post("/checkout", headers={"Authorization": token})
+    assert response.status_code == 200
+```
+
+4. Regression Tests
+Prevent bugs from reappearing:
+- Test previously fixed bugs
+- Ensure features don't break
+- Build up over time
+
+5. Performance Tests
+Verify system performance:
+- Load testing
+- Stress testing
+- Measure response times
+- Identify bottlenecks
+
+pytest: Python Testing Framework
+
+pytest is the most popular Python testing framework, known for its simplicity and powerful features.
+
+Installation:
+```bash
+pip install pytest pytest-cov pytest-asyncio
+```
+
+Basic Test Structure:
+```python
+# test_calculator.py
+def test_addition():
+    assert 2 + 2 == 4
+
+def test_subtraction():
+    assert 5 - 3 == 2
+```
+
+Run tests:
+```bash
+pytest                    # Run all tests
+pytest test_file.py       # Run specific file
+pytest -v                 # Verbose output
+pytest -k "addition"      # Run tests matching name
+pytest --cov=.           # Generate coverage report
+```
+
+pytest Features:
+
+1. Fixtures
+Reusable setup code:
+```python
+import pytest
+
+@pytest.fixture
+def sample_data():
+    return {"name": "John", "age": 30}
+
+def test_name(sample_data):
+    assert sample_data["name"] == "John"
+
+def test_age(sample_data):
+    assert sample_data["age"] == 30
+```
+
+2. Parametrization
+Run same test with different inputs:
+```python
+@pytest.mark.parametrize("input,expected", [
+    (2, 4),
+    (3, 9),
+    (4, 16),
+])
+def test_square(input, expected):
+    assert input ** 2 == expected
+```
+
+3. Markers
+Categorize and skip tests:
+```python
+@pytest.mark.slow
+def test_slow_operation():
+    # Takes a long time
+    pass
+
+@pytest.mark.skip(reason="Not implemented yet")
+def test_future_feature():
+    pass
+
+@pytest.mark.skipif(sys.version_info < (3, 10), reason="Requires Python 3.10+")
+def test_new_syntax():
+    pass
+```
+
+Run marked tests:
+```bash
+pytest -m slow          # Run only slow tests
+pytest -m "not slow"    # Skip slow tests
+```
+
+4. Exception Testing
+```python
+def test_division_by_zero():
+    with pytest.raises(ZeroDivisionError):
+        1 / 0
+
+def test_invalid_input():
+    with pytest.raises(ValueError, match="invalid literal"):
+        int("abc")
+```
+
+Testing FastAPI Applications:
+
+Use TestClient for synchronous tests:
+```python
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+
+app = FastAPI()
+
+@app.get("/")
+def read_root():
+    return {"message": "Hello"}
+
+client = TestClient(app)
+
+def test_read_root():
+    response = client.get("/")
+    assert response.status_code == 200
+    assert response.json() == {"message": "Hello"}
+
+def test_post_item():
+    response = client.post(
+        "/items/",
+        json={"name": "Test Item", "price": 10.5}
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["name"] == "Test Item"
+```
+
+Async tests with pytest-asyncio:
+```python
+import pytest
+from httpx import AsyncClient
+
+@pytest.mark.asyncio
+async def test_async_endpoint():
+    async with AsyncClient(app=app, base_url="http://test") as ac:
+        response = await ac.get("/")
+    assert response.status_code == 200
+```
+
+Mocking and Patching:
+
+Mocking replaces real objects with fake ones for testing.
+
+Using unittest.mock:
+```python
+from unittest.mock import Mock, patch
+
+# Mock object
+def test_with_mock():
+    mock_db = Mock()
+    mock_db.get_user.return_value = {"id": 1, "name": "John"}
+
+    user = mock_db.get_user(1)
+    assert user["name"] == "John"
+    mock_db.get_user.assert_called_once_with(1)
+
+# Patch function
+@patch('module.external_api_call')
+def test_with_patch(mock_api):
+    mock_api.return_value = {"status": "success"}
+
+    result = function_that_calls_api()
+    assert result["status"] == "success"
+```
+
+Using pytest-mock:
+```python
+def test_with_mocker(mocker):
+    mock_api = mocker.patch('module.api_call')
+    mock_api.return_value = {"data": "test"}
+
+    result = function_using_api()
+    assert result["data"] == "test"
+```
+
+Testing LLM Applications:
+
+Challenges:
+- Non-deterministic outputs
+- API calls are slow and costly
+- Difficult to assert exact responses
+
+Strategies:
+
+1. Mock LLM Calls
+```python
+@patch('openai.ChatCompletion.create')
+def test_llm_endpoint(mock_completion):
+    mock_completion.return_value = {
+        "choices": [{
+            "message": {"content": "Mocked response"}
+        }]
+    }
+
+    response = client.post("/query", json={"question": "Test"})
+    assert response.status_code == 200
+    assert "Mocked response" in response.json()["answer"]
+```
+
+2. Test Structure, Not Content
+```python
+def test_response_structure():
+    response = client.post("/query", json={"question": "What is AI?"})
+    data = response.json()
+
+    # Test structure
+    assert "question" in data
+    assert "answer" in data
+    assert isinstance(data["answer"], str)
+    assert len(data["answer"]) > 0
+```
+
+3. Use Test Mode with Fixed Seed
+```python
+# For testing, use temperature=0 for deterministic output
+response = client.chat.completions.create(
+    model="gpt-4",
+    messages=messages,
+    temperature=0  # Deterministic
+)
+```
+
+4. Test Edge Cases
+```python
+def test_empty_question():
+    response = client.post("/query", json={"question": ""})
+    assert response.status_code == 400
+
+def test_very_long_question():
+    long_question = "x" * 10000
+    response = client.post("/query", json={"question": long_question})
+    # Should handle gracefully
+```
+
+5. Integration Tests with Real API (Selective)
+```python
+@pytest.mark.integration
+@pytest.mark.skipif(not os.getenv("OPENAI_API_KEY"), reason="No API key")
+def test_real_llm_call():
+    response = client.post("/query", json={"question": "What is 2+2?"})
+    assert response.status_code == 200
+    # Just verify it returns something reasonable
+    assert len(response.json()["answer"]) > 0
+```
+
+Testing RAG Systems:
+
+1. Test Retrieval Quality
+```python
+def test_retrieval_relevance():
+    # Query about specific topic
+    query = "What is LangChain?"
+
+    # Retrieve documents
+    docs = vectorstore.similarity_search(query, k=3)
+
+    # Verify retrieved docs are relevant
+    assert len(docs) > 0
+    # Check keywords present
+    combined_text = " ".join([doc.page_content for doc in docs])
+    assert "langchain" in combined_text.lower()
+```
+
+2. Test Document Loading
+```python
+def test_document_loading():
+    docs = load_documents("sample_data/")
+    assert len(docs) > 0
+    assert all(hasattr(doc, 'page_content') for doc in docs)
+    assert all(hasattr(doc, 'metadata') for doc in docs)
+```
+
+3. Test Chunking
+```python
+def test_text_splitting():
+    text = "Long text..." * 1000
+    splitter = CharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+    chunks = splitter.split_text(text)
+
+    assert len(chunks) > 1
+    # Verify chunk sizes
+    assert all(len(chunk) <= 550 for chunk in chunks)  # Allow some margin
+```
+
+4. Mock Vector Store
+```python
+@pytest.fixture
+def mock_vectorstore(mocker):
+    mock_vs = mocker.Mock()
+    mock_vs.similarity_search.return_value = [
+        Document(page_content="Relevant info about AI"),
+        Document(page_content="More details on machine learning")
+    ]
+    return mock_vs
+
+def test_qa_chain(mock_vectorstore):
+    # Use mocked vectorstore
+    result = qa_chain.invoke("What is AI?", vectorstore=mock_vectorstore)
+    assert result is not None
+```
+
+Test Organization:
+
+Directory Structure:
+```
+project/
+├── app/
+│   ├── __init__.py
+│   ├── main.py
+│   ├── models.py
+│   └── utils.py
+├── tests/
+│   ├── __init__.py
+│   ├── conftest.py          # Shared fixtures
+│   ├── test_main.py
+│   ├── test_models.py
+│   └── test_utils.py
+├── requirements.txt
+└── pytest.ini
+```
+
+conftest.py (shared fixtures):
+```python
+import pytest
+from fastapi.testclient import TestClient
+from app.main import app
+
+@pytest.fixture
+def client():
+    return TestClient(app)
+
+@pytest.fixture
+def sample_user():
+    return {"name": "Test User", "email": "test@example.com"}
+```
+
+pytest.ini (configuration):
+```ini
+[pytest]
+testpaths = tests
+python_files = test_*.py
+python_functions = test_*
+markers =
+    slow: marks tests as slow
+    integration: marks tests as integration tests
+addopts = -v --cov=app --cov-report=html
+```
+
+Code Coverage:
+
+Measure how much code is tested:
+```bash
+pytest --cov=app --cov-report=html
+```
+
+View report:
+```bash
+open htmlcov/index.html
+```
+
+Aim for:
+- Critical paths: 100% coverage
+- Overall: 80%+ coverage
+- Don't chase 100% everywhere (diminishing returns)
+
+Continuous Integration:
+
+Run tests automatically on every commit:
+
+.github/workflows/test.yml:
+```yaml
+name: Tests
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-cov
+      - name: Run tests
+        run: pytest --cov=app
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+```
+
+Best Practices:
+
+1. Write tests first (TDD) or alongside code
+2. Test behavior, not implementation
+3. Keep tests simple and readable
+4. One assertion per test (when possible)
+5. Use descriptive test names
+6. Avoid test interdependencies
+7. Fast tests in CI, slow tests less frequently
+8. Mock external services
+9. Test edge cases and error conditions
+10. Maintain tests like production code
+
+Common Pitfalls:
+
+1. Over-mocking: Mock too much, tests become meaningless
+2. Under-testing edge cases: Only test happy paths
+3. Flaky tests: Tests that sometimes pass/fail
+4. Slow tests: Tests take too long, developers avoid running them
+5. Brittle tests: Break when implementation changes
+6. Testing implementation details: Tests coupled to code structure
+
+Testing is an investment that pays dividends in code quality, developer confidence, and reduced bugs. For AI applications, thoughtful testing strategies that account for non-determinism and external dependencies are essential for production reliability.
